@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "keen-slider": "^6.8.6",
     "vite-plugin-pwa": "^1.0.1"
   }
 }

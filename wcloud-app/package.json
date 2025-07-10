@@ -12,6 +12,7 @@
   "dependencies": {
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-horizontal-scrolling-menu": "^8.2.0",
     "vite-plugin-pwa": "^1.0.1",
     "wordcloud": "^1.2.3"
   },

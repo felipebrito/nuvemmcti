@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import WordCloud from 'wordcloud';
 import './App.css';
+import { ScrollMenu } from 'react-horizontal-scrolling-menu';
+import 'react-horizontal-scrolling-menu/dist/styles.css';
+import 'keen-slider/keen-slider.min.css';
+import { useKeenSlider } from 'keen-slider/react';
 
 const initialWords = [
   ['Foguete', 3], ['Sonho', 1], ['Persistência', 7], ['Nós', 1], ['Brasil', 1],
@@ -60,7 +64,10 @@ function loadWords() {
     if (data) {
       const parsed = JSON.parse(data);
       console.log('[DEBUG] Palavras carregadas do localStorage:', parsed);
-      return parsed;
+      // Garante que é um array de [string, number]
+      if (Array.isArray(parsed) && parsed.every(item => Array.isArray(item) && typeof item[0] === 'string' && typeof item[1] === 'number')) {
+        return parsed;
+      }
     }
   } catch (err) {
     console.error('[DEBUG] Erro ao carregar palavras:', err);
@@ -68,12 +75,217 @@ function loadWords() {
   return null;
 }
 
+// Hook robusto para persistência
+function usePersistentState(key, initialValue) {
+  const [state, setState] = useState(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      if (item) {
+        const parsed = JSON.parse(item);
+        if (Array.isArray(parsed) && parsed.every(item => Array.isArray(item) && typeof item[0] === 'string' && typeof item[1] === 'number')) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    return initialValue;
+  });
+  const isFirst = useRef(true);
+  const ignoreNextPersist = useRef(false);
+  useEffect(() => {
+    if (isFirst.current) {
+      isFirst.current = false;
+      return;
+    }
+    if (ignoreNextPersist.current) {
+      ignoreNextPersist.current = false;
+      return;
+    }
+    try {
+      window.localStorage.setItem(key, JSON.stringify(state));
+      console.log('[DEBUG] usePersistentState: Salvo no localStorage:', state);
+    } catch (e) {
+      // ignore
+    }
+  }, [key, state]);
+  // Função especial para reset temporário
+  const setStateNoPersist = (value) => {
+    ignoreNextPersist.current = true;
+    setState(value);
+  };
+  return [state, setState, setStateNoPersist];
+}
+
+function WordCard({ word, selected, onClick, onDragStart }) {
+  return (
+    <div
+      draggable
+      onDragStart={() => onDragStart(word)}
+      onClick={onClick}
+      style={{
+        minWidth: 120,
+        padding: '18px 32px',
+        margin: '0 12px',
+        borderRadius: 18,
+        background: selected
+          ? 'rgba(255,255,255,0.18)'
+          : 'rgba(40,40,60,0.22)',
+        color: selected ? '#fff' : '#e0e0e0',
+        fontWeight: 700,
+        fontSize: 24,
+        boxShadow: selected
+          ? '0 4px 32px 0 #fff8, 0 1.5px 8px #44f8'
+          : '0 1.5px 8px #0004',
+        backdropFilter: 'blur(8px)',
+        border: selected ? '2px solid #fff' : '2px solid transparent',
+        transition: 'all 0.3s cubic-bezier(.4,2,.3,1)',
+        cursor: 'pointer',
+        userSelect: 'none',
+      }}
+    >
+      {word}
+    </div>
+  );
+}
+
+function WordList({ words, selected, setSelected, onDragStart }) {
+  return (
+    <ScrollMenu>
+      {words.map(([w]) => (
+        <WordCard
+          key={w}
+          word={w}
+          selected={selected === w}
+          onClick={() => setSelected(w)}
+          onDragStart={onDragStart}
+        />
+      ))}
+    </ScrollMenu>
+  );
+}
+
+function WordAutoWidthCarousel({ words, selected, setSelected, isMoving, setIsMoving, onAdd, onDragStart, isDesktop }) {
+  const [sliderRef, instanceRef] = useKeenSlider({
+    loop: true,
+    mode: 'snap',
+    rtl: false,
+    slides: { perView: 'auto' },
+    dragStart: () => setIsMoving(true),
+    dragEnd: () => setIsMoving(false),
+    slideChanged(s) {
+      setSelected(words[s.track.details.rel][0]);
+    },
+  });
+  const selectedIdx = words.findIndex(([w]) => w === selected);
+  return (
+    <div style={{
+      position: 'relative',
+      width: '60vw',
+      maxWidth: 600,
+      margin: '0 auto 24px auto',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      zIndex: 2,
+    }}>
+      <div
+        ref={sliderRef}
+        className="keen-slider"
+        style={{
+          width: '100%',
+          overflow: 'hidden',
+          background: 'none',
+          boxShadow: 'none',
+          padding: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2,
+        }}
+      >
+        {words.map(([word], idx) => (
+          <div
+            className="keen-slider__slide"
+            key={word}
+            draggable={isDesktop}
+            onDragStart={isDesktop ? (e) => onDragStart(e, word) : undefined}
+            style={{
+              minWidth: Math.max(80, word.length * 18),
+              maxWidth: 340,
+              width: 'auto',
+              margin: '0 8px',
+              fontSize: 24,
+              fontWeight: selected === word ? 800 : 500,
+              color: '#fff',
+              background: selected === word ? 'rgba(255,255,255,0.18)' : 'rgba(40,40,60,0.22)',
+              borderRadius: 18,
+              boxShadow: selected === word ? '0 4px 32px 0 #fff8, 0 1.5px 8px #44f8' : '0 1.5px 8px #0004',
+              backdropFilter: 'blur(8px)',
+              border: selected === word ? '3px solid #fff' : '2px solid transparent',
+              transition: 'all 0.3s cubic-bezier(.4,2,.3,1)',
+              cursor: 'pointer',
+              userSelect: 'none',
+              whiteSpace: 'nowrap',
+              overflow: 'visible', // Permite que o botão + não seja cortado
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 16,
+              padding: '0 18px',
+            }}
+            onClick={() => setSelected(word)}
+          >
+            <span>{word}</span>
+            {selectedIdx === idx && (
+              <button
+                onClick={e => { e.stopPropagation(); onAdd(word); }}
+                style={{
+                  background: 'rgba(40,40,60,0.7)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: 32,
+                  height: 32,
+                  fontSize: 22,
+                  fontWeight: 800,
+                  boxShadow: '0 2px 8px #0006',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 5,
+                }}
+                tabIndex={-1}
+                title="Adicionar palavra"
+              >
+                +
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const canvasRef = useRef(null);
-  const [words, setWords] = useState(() => loadWords() || initialWords);
+  const [words, setWords, setWordsNoPersist] = usePersistentState('wcloud-words', initialWords);
+  console.log('[DEBUG] Valor inicial de words no state:', words);
   const [selected, setSelected] = useState(initialWords[0][0]);
   const [highlight, setHighlight] = useState(false);
   const [touchDrag, setTouchDrag] = useState({ active: false, word: null, x: 0, y: 0 });
+  const [isMoving, setIsMoving] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth > 800);
+  const didMount = useRef(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth > 800);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Touch handlers
   const handleTouchStart = (w) => (e) => {
@@ -105,22 +317,17 @@ function App() {
     setTouchDrag({ active: false, word: null, x: 0, y: 0 });
   };
 
-  // Atalho de teclado para resetar pesos
+  // Atalho de teclado para resetar pesos (apenas na interface, não persiste)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'r' || e.key === 'R') {
-        setWords(prev => prev.map(([w]) => [w, 1]));
+        setWordsNoPersist(prev => prev.map(([w]) => [w, 1]));
         setHighlight(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  // Persistir palavras no localStorage
-  useEffect(() => {
-    saveWords(words);
-  }, [words]);
 
   // Prevenir gesto de voltar/avançar do browser
   useEffect(() => {
@@ -174,9 +381,9 @@ function App() {
     }
   }, [highlight]);
 
-  // Drag & Drop
-  const onDragStart = (w) => {
-    setSelected(w);
+  // Drag & Drop desktop
+  const onDragStart = (e, word) => {
+    e.dataTransfer.setData('text/plain', word);
   };
   const onDragOver = (e) => {
     e.preventDefault();
@@ -187,7 +394,8 @@ function App() {
   };
   const onDrop = (e) => {
     e.preventDefault();
-    setWords(prev => prev.map(([w, v]) => w === selected ? [w, v + 1] : [w, v]));
+    const word = e.dataTransfer.getData('text/plain');
+    setWords(prev => prev.map(([w, v]) => w === word ? [w, v + 1] : [w, v]));
     setHighlight(true);
     if (canvasRef.current) canvasRef.current.style.outline = 'none';
   };
@@ -206,8 +414,23 @@ function App() {
     // eslint-disable-next-line
   }, [words]);
 
+  // Incrementar palavra (botão + ou drag)
+  const incrementWord = (word) => {
+    setWords(prev => {
+      const updated = prev.map(([w, v]) => {
+        if (w === word) {
+          console.log('[DEBUG] Incrementando palavra:', w, 'Valor antes:', v, 'Valor depois:', v + 1);
+          return [w, v + 1];
+        }
+        return [w, v];
+      });
+      console.log('[DEBUG] Novo array após incremento:', updated);
+      return updated;
+    });
+  };
+
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', width: '100vw', overflow: 'hidden', background: 'transparent' }}>
+    <div style={{ position: 'relative', minHeight: '100vh', width: '100vw', overflow: 'hidden', background: 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       <video
         autoPlay
         loop
@@ -228,6 +451,7 @@ function App() {
         position: 'relative',
         zIndex: 1,
         minHeight: '100vh',
+        width: '100vw',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -235,89 +459,29 @@ function App() {
         background: 'transparent',
       }}>
         {/* Conteúdo principal acima do fundo */}
-        <div style={{
-          marginBottom: 24,
-          display: 'flex',
-          flexDirection: 'row',
-          gap: 0,
-          alignItems: 'center',
-          width: '40vw',
-          minWidth: 320,
-          maxWidth: 600,
-          overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          background: '#222',
-          borderRadius: 12,
-          boxShadow: '0 2px 12px #0004',
-          padding: 8,
-          marginTop: 16,
-          justifyContent: 'center',
-          position: 'relative',
-        }}>
-          {words.map(([w], idx) => (
-            <div
-              key={w}
-              draggable
-              onDragStart={() => onDragStart(w)}
-              onClick={() => setSelected(w)}
-              onTouchStart={handleTouchStart(w)}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              style={{
-                minWidth: 100,
-                padding: '12px 18px',
-                margin: '0 6px',
-                borderRadius: 8,
-                background: selected === w ? '#44f' : '#333',
-                color: selected === w ? '#fff' : '#eee',
-                fontWeight: selected === w ? 700 : 400,
-                fontSize: selected === w ? 22 : 18,
-                boxShadow: selected === w ? '0 2px 8px #44f8' : 'none',
-                cursor: 'grab',
-                border: selected === w ? '2px solid #fff' : '2px solid transparent',
-                transition: 'all 0.2s',
-                textAlign: 'center',
-                userSelect: 'none',
-                touchAction: 'manipulation',
-              }}
-            >
-              {w}
-            </div>
-          ))}
-          {/* Fantasma do drag no touch */}
-          {touchDrag.active && (
-            <div
-              style={{
-                position: 'fixed',
-                left: touchDrag.x - 50,
-                top: touchDrag.y - 30,
-                width: 100,
-                height: 40,
-                background: '#44f',
-                color: '#fff',
-                borderRadius: 8,
-                fontWeight: 700,
-                fontSize: 22,
-                boxShadow: '0 2px 12px #44f8',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                pointerEvents: 'none',
-                zIndex: 9999,
-                opacity: 0.85,
-              }}
-            >
-              {touchDrag.word}
-            </div>
-          )}
-        </div>
+        <WordAutoWidthCarousel
+          words={words}
+          selected={selected}
+          setSelected={setSelected}
+          isMoving={isMoving}
+          setIsMoving={setIsMoving}
+          onAdd={incrementWord}
+          onDragStart={onDragStart}
+          isDesktop={isDesktop}
+        />
         <canvas
           ref={canvasRef}
           width={900}
           height={600}
           style={{ background: 'transparent', borderRadius: 8, transition: 'opacity 0.5s, box-shadow 0.5s', outline: 'none' }}
           onDragOver={onDragOver}
-          onDrop={onDrop}
+          onDrop={e => {
+            e.preventDefault();
+            const word = e.dataTransfer.getData('text/plain');
+            incrementWord(word);
+            setHighlight(true);
+            if (canvasRef.current) canvasRef.current.style.outline = 'none';
+          }}
           onDragLeave={onDragLeave}
         />
       </div>

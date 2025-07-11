@@ -120,8 +120,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 0; /* Importante para flex */
+  min-height: 0;
   margin-bottom: 20px;
+  
+  border-radius: 16px;
 }
 
 /* Seção de palavras - altura fixa na parte inferior */

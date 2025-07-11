@@ -147,14 +147,25 @@ function D3WordCloud({ words, width = 1200, height = 600, onDropWord, isTouchDra
     function draw(words) {
       if (!ctx) return;
       ctx.clearRect(0, 0, width, height);
+      // Animação de brilho oscilante
+      const t = Date.now() / 900;
+      const osc = 0.5 + 0.5 * Math.sin(t);
+      const alphaGlow = 0.45 + 0.35 * osc; // oscila entre 0.45 e 0.8
       words.forEach(word => {
         ctx.save();
         ctx.font = `${word.weight} ${word.size}px Rawline, sans-serif`;
-        ctx.fillStyle = '#fff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.translate(word.x + width / 2, word.y + height / 2);
         ctx.rotate(word.rotate * Math.PI / 180);
+        // Primeira camada: base aditiva
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.fillText(word.text, 0, 0);
+        // Segunda camada: brilho animado
+        ctx.fillStyle = `rgba(255,255,255,${alphaGlow})`;
+        ctx.shadowColor = '#fff';
+        ctx.shadowBlur = 8 + 8 * osc;
         ctx.fillText(word.text, 0, 0);
         ctx.restore();
       });

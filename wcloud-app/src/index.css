@@ -1,12 +1,41 @@
+@font-face {
+  font-family: 'Rawline';
+  src: url('/fonts/rawline-300.woff2') format('woff2'), url('/fonts/rawline-300.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Rawline';
+  src: url('/fonts/rawline-400.woff2') format('woff2'), url('/fonts/rawline-400.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Rawline';
+  src: url('/fonts/rawline-700.woff2') format('woff2'), url('/fonts/rawline-700.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Rawline';
+  src: url('/fonts/rawline-800.woff2') format('woff2'), url('/fonts/rawline-800.ttf') format('truetype');
+  font-weight: 800;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Rawline';
+  src: url('/fonts/rawline-900.woff2') format('woff2'), url('/fonts/rawline-900.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+}
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Rawline', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

@@ -1,0 +1,570 @@
+/* Importação das fontes Rawline */
+@font-face {
+  font-family: 'Rawline';
+  src: url('/fonts/rawline-300.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Rawline';
+  src: url('/fonts/rawline-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Rawline';
+  src: url('/fonts/rawline-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Rawline';
+  src: url('/fonts/rawline-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Rawline';
+  src: url('/fonts/rawline-800.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Rawline';
+  src: url('/fonts/rawline-900.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+}
+
+/* Container principal - otimizado para 1920x1080 */
+.video-wordcloud-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Rawline', sans-serif;
+}
+
+/* Vídeo de fundo */
+.background-video {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+}
+
+/* Overlay escuro sobre o vídeo */
+.video-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: -1;
+}
+
+/* Fallback para quando não há vídeo */
+.video-fallback {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -2;
+}
+
+.animated-background {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(-45deg, #0a2a5a, #1a4a8a, #2a6aba, #1a4a8a);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Wrapper do conteúdo - layout otimizado */
+.content-wrapper {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* Seção do WordCloud - ocupa a maior parte da tela */
+.wordcloud-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0; /* Importante para flex */
+  margin-bottom: 20px;
+}
+
+/* Seção de palavras - altura fixa na parte inferior */
+.words-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 40vw;
+  min-width: 320px;
+  max-width: 600px;
+  margin: 0 auto;
+  /* Altura para 3 cards + 2 gaps + header (48px) */
+  height: calc(3 * 70px + 2 * 16px + 48px);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border-radius: 15px;
+  padding: 24px 0 24px 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.words-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  width: 100%;
+  /* Altura máxima para 3 cards + 2 gaps */
+  max-height: calc(3 * 70px + 2 * 16px);
+  overflow-y: auto;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+
+/* Header da seção de palavras */
+.words-header {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.words-header h3 {
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.reset-btn {
+  background: rgba(244, 67, 54, 0.8);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.reset-btn:hover {
+  background: rgba(244, 67, 54, 1);
+  transform: translateY(-1px);
+}
+
+/* Keen Slider */
+.words-slider {
+  height: 100px;
+  overflow: hidden;
+}
+
+.keen-slider__slide {
+  display: flex !important;
+  align-items: center;
+  width: auto !important;
+  min-width: 120px !important;
+  max-width: 520px !important;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+/* Cards de palavras */
+.word-card {
+  background: rgba(30, 40, 80, 0.35);
+  border-radius: 10px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  transition: all 0.3s ease;
+  min-width: 0;
+  width: 100%;
+  user-select: none;
+  cursor: grab;
+  position: relative;
+  box-sizing: border-box;
+  height: 38px;
+}
+
+.word-card:active {
+  cursor: grabbing;
+}
+
+.word-card:hover, .word-card.drag-over {
+  background: rgba(44, 62, 120, 0.55);
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px #4CAF50;
+}
+
+.word-text {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.01rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.01em;
+  flex: 1;
+  text-align: center;
+  margin: 0 8px;
+}
+
+/* Botão especial para touch */
+.touch-add-btn {
+  display: none;
+}
+@media (pointer: coarse) {
+  .touch-add-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #4CAF50;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+    margin-left: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px #0002;
+    transition: background 0.2s;
+  }
+  .touch-add-btn:active {
+    background: #388e3c;
+  }
+  .word-card {
+    cursor: pointer;
+  }
+}
+
+.word-card-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.word-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.word-count {
+  min-width: 16px;
+  font-size: 0.95rem;
+  padding: 1px 6px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 2px;
+  height: 20px;
+}
+
+.control-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  margin: 0 2px;
+}
+
+.control-btn.add {
+  background: #4CAF50;
+  color: white;
+}
+
+.control-btn.add:hover {
+  background: #45a049;
+  transform: scale(1.1);
+}
+
+.control-btn.remove {
+  background: #f44336;
+  color: white;
+}
+
+.control-btn.remove:hover {
+  background: #da190b;
+  transform: scale(1.1);
+}
+
+/* Estado vazio */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  padding: 40px;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  opacity: 0.7;
+}
+
+.empty-state p {
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.content-wrapper {
+  animation: fadeIn 0.8s ease-out;
+}
+
+/* Melhorias de acessibilidade */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Foco visível para navegação por teclado */
+.control-btn:focus,
+.reset-btn:focus {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Responsividade para telas menores */
+@media (max-width: 1366px) {
+  .keen-slider__slide {
+    min-width: 130px;
+  }
+  
+  .word-card {
+    padding: 10px 14px;
+    height: 55px;
+  }
+  
+  .word-text {
+    font-size: 0.9rem;
+  }
+  
+  .control-btn {
+    width: 22px;
+    height: 22px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .content-wrapper {
+    padding: 15px;
+  }
+  
+  .words-section {
+    height: 160px;
+    padding: 15px;
+  }
+  
+  .keen-slider__slide {
+    min-width: 120px;
+  }
+  
+  .word-card {
+    padding: 8px 12px;
+    height: 50px;
+  }
+  
+  .word-text {
+    font-size: 0.85rem;
+  }
+  
+  .control-btn {
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+  }
+} 
+
+/* Canvas área de drop */
+.wordcloud-section canvas {
+  min-width: 600px;
+  min-height: 300px;
+  outline: none;
+  transition: box-shadow 0.2s, outline 0.2s;
+  z-index: 2;
+}
+
+.wordcloud-section canvas.drag-over {
+  outline: 3px dashed #4CAF50 !important;
+  box-shadow: 0 0 0 4px #4CAF5044;
+} 
+
+.words-scroll {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #4CAF50 #222a44;
+}
+.words-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+.words-scroll::-webkit-scrollbar-thumb {
+  background: #4CAF50;
+  border-radius: 4px;
+}
+.words-scroll::-webkit-scrollbar-track {
+  background: #222a44;
+  border-radius: 4px;
+} 
+
+.card-controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+}
+
+.controls-rotated {
+  transform: rotate(180deg);
+}
+
+.card-btn {
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  font-size: 13px;
+  padding: 0;
+  margin: 0 2px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-btn-left {
+  left: 4px;
+  top: 4px;
+}
+.card-btn-right {
+  right: 4px;
+  top: 4px;
+} 
+
+.words-section-top {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.7) rotate(0deg);
+  width: 40vw;
+  min-width: 220px;
+  max-width: 400px;
+  height: calc(3 * 38px + 2 * 16px + 48px);
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  z-index: 20;
+  box-shadow: 0 4px 24px #0003;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.words-section-top .words-header {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 12px;
+  font-size: 1rem;
+  color: #fff;
+  transform: rotate(180deg);
+}
+
+.words-section-top .words-list {
+  max-height: calc(3 * 38px + 2 * 16px);
+  overflow-y: auto;
+  padding: 0 12px;
+  box-sizing: border-box;
+  width: 100%;
+  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.words-section-top .word-card {
+  transform: rotate(180deg);
+  font-size: 0.95em;
+} 

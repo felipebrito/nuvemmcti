@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Teste WordCloud2.js - draw customizado</title>
+  <style>
+    @font-face {
+      font-family: 'Rawline';
+      src: url('./wcloud-app/public/fonts/rawline-900.woff2') format('woff2');
+      font-weight: 900;
+    }
+    body { background: #0a2a5a; }
+    canvas { background: transparent; display: block; margin: 40px auto; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <canvas id="mycloud" style="width:900px; height:600px;"></canvas>
+  <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js"></script>
+  <script>
+    // Retina/HiDPI support
+    const canvas = document.getElementById('mycloud');
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = 900 * ratio;
+    canvas.height = 600 * ratio;
+    canvas.style.width = '900px';
+    canvas.style.height = '600px';
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+    // Teste visual central: Rawline 900 vs Arial bold
+    ctx.save();
+    ctx.font = '900 64px Rawline, sans-serif';
+    ctx.fillStyle = '#ff00cc';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('RAWLINE 900', 450, 150);
+    ctx.restore();
+
+    ctx.save();
+    ctx.font = 'bold 64px Arial, sans-serif';
+    ctx.fillStyle = '#00ffcc';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('ARIAL BOLD', 450, 250);
+    ctx.restore();
+
+    // Nuvem de palavras
+    const words = [
+      ['Foguete', 3], ['Sonho', 1], ['Persistência', 7], ['Nós', 1], ['Brasil', 1],
+      ['Livro', 8], ['Descoberta', 5], ['Sustentabilidade', 7], ['Fórmula', 3], ['Fundamental', 6],
+      ['Futuro', 1], ['Calculadora', 4], ['Tudo', 6], ['Inspiração', 1], ['Engrenagem', 7],
+      ['Vida', 8], ['Teoria', 1], ['Saúde', 5], ['Ideia', 9], ['Necessidade', 6],
+      ['Lupa', 4], ['Esperança', 1], ['Laboratório', 7], ['Chip', 8], ['Humanidade', 6],
+      ['Avião', 2], ['Soberania', 5], ['Átomo', 9], ['Eu', 4], ['Universo', 1],
+      ['Pesquisa', 7], ['Democracia', 1], ['Mundo', 6], ['Comunidade', 8], ['Superação', 9],
+      ['Microscópio', 5], ['Trabalho', 7], ['Educação', 3], ['Incrível', 4], ['Gente', 6],
+      ['Conhecimento', 3], ['União', 5], ['Amor', 8],
+    ];
+
+    function drawWord(ctx, info) {
+      let weight = 300;
+      if (info.fontSize > 30 && info.fontSize <= 50) weight = 400;
+      else if (info.fontSize > 50 && info.fontSize <= 70) weight = 700;
+      else if (info.fontSize > 70 && info.fontSize <= 100) weight = 800;
+      else if (info.fontSize > 100) weight = 900;
+      ctx.font = `${weight} ${info.fontSize}px Rawline, sans-serif`;
+      ctx.fillStyle = info.fill;
+      ctx.save();
+      ctx.translate(info.x, info.y);
+      ctx.rotate(info.rotate);
+      ctx.fillText(info.text, 0, 0);
+      ctx.restore();
+    }
+
+    WordCloud(canvas, {
+      list: words,
+      fontFamily: 'Rawline, sans-serif',
+      weightFactor: function (size) {
+        const base = 14;
+        const fator = 18;
+        const maxFontSize = 120;
+        return Math.min(base + Math.log2(size) * fator, maxFontSize);
+      },
+      color: () => '#fff',
+      backgroundColor: 'rgba(0,0,0,0)',
+      draw: drawWord,
+      rotateRatio: 1,
+      rotationSteps: 360,
+      minRotation: 0,
+      maxRotation: Math.PI * 2,
+    });
+  </script>
+</body>
+</html> 

@@ -5,6 +5,7 @@ import { ScrollMenu } from 'react-horizontal-scrolling-menu';
 import 'react-horizontal-scrolling-menu/dist/styles.css';
 import 'keen-slider/keen-slider.min.css';
 import { useKeenSlider } from 'keen-slider/react';
+import VideoWordCloud from './VideoWordCloud';
 
 const initialWords = [
   ['Foguete', 3], ['Sonho', 1], ['Persistência', 7], ['Nós', 1], ['Brasil', 1],
@@ -22,7 +23,15 @@ const fontWeights = [300, 400, 700, 800];
 
 const optionsBase = {
   gridSize: 8, // menor grid para palavras maiores
-  weightFactor: 22, // aumenta o tamanho das palavras
+  // Crescimento logarítmico e tamanho máximo
+  weightFactor: function (size) {
+    const base = 14; // tamanho mínimo menor
+    const fator = 18; // crescimento
+    const maxFontSize = 120; // tamanho máximo
+    // size é o valor da palavra
+    const fontSize = Math.min(base + Math.log2(size) * fator, maxFontSize);
+    return fontSize;
+  },
   fontFamily: 'Rawline, sans-serif',
   color: function() {
     return (['#fff', '#e0e0e0'])[Math.floor(Math.random() * 2)]; // branco e cinza claro
@@ -33,12 +42,46 @@ const optionsBase = {
   minRotation: 0,
   maxRotation: Math.PI * 2,
   draw: function drawWord(ctx, info) {
+    console.log('🎨 [DEBUG] drawWord CHAMADO!', {
+      text: info.text,
+      weight: info.weight,
+      fontSize: info.fontSize,
+      fontFamily: info.fontFamily,
+      currentFont: ctx.font
+    });
+    
     // Peso da fonte progride conforme o tamanho da palavra
     let weight = 300;
-    if (info.fontSize > 40 && info.fontSize <= 60) weight = 400;
-    else if (info.fontSize > 60 && info.fontSize <= 90) weight = 700;
-    else if (info.fontSize > 90) weight = 800;
-    ctx.font = `${weight} ${info.fontSize}px ${info.fontFamily}`;
+    if (info.fontSize > 30 && info.fontSize <= 50) weight = 400;
+    else if (info.fontSize > 50 && info.fontSize <= 70) weight = 700;
+    else if (info.fontSize > 70 && info.fontSize <= 100) weight = 800;
+    else if (info.fontSize > 100) weight = 900;
+    
+    const newFont = `${weight} ${info.fontSize}px ${info.fontFamily}`;
+    ctx.font = newFont;
+    
+    // Debug para todas as palavras desenhadas
+    console.log('🎯 [DEBUG] Palavra renderizada:', {
+      text: info.text,
+      valor: info.weight,
+      pesoAplicado: weight,
+      fontSize: info.fontSize,
+      fontAntes: info.fontFamily,
+      fontDepois: newFont,
+      ctxFont: ctx.font
+    });
+    
+    // Teste visual: adiciona uma borda colorida para palavras com peso alto
+    if (weight >= 700) {
+      ctx.strokeStyle = '#ff0000'; // vermelho para palavras grossas
+      ctx.lineWidth = 2;
+      ctx.strokeText(info.text, 0, 0);
+    } else if (weight >= 400) {
+      ctx.strokeStyle = '#00ff00'; // verde para palavras médias
+      ctx.lineWidth = 1;
+      ctx.strokeText(info.text, 0, 0);
+    }
+    
     ctx.fillStyle = info.fill;
     ctx.save();
     ctx.translate(info.x, info.y);
@@ -104,7 +147,7 @@ function usePersistentState(key, initialValue) {
     }
     try {
       window.localStorage.setItem(key, JSON.stringify(state));
-      console.log('[DEBUG] usePersistentState: Salvo no localStorage:', state);
+      // console.log('[DEBUG] usePersistentState: Salvo no localStorage:', state);
     } catch (e) {
       // ignore
     }
@@ -117,34 +160,27 @@ function usePersistentState(key, initialValue) {
   return [state, setState, setStateNoPersist];
 }
 
-function WordCard({ word, selected, onClick, onDragStart }) {
+// Substituir WordCard para aceitar isTopMenu e exibir apenas um conjunto de controles
+function WordCard({ word, count, onAdd, onRemove, isTopMenu }) {
   return (
     <div
-      draggable
-      onDragStart={() => onDragStart(word)}
-      onClick={onClick}
+      className="word-card"
       style={{
-        minWidth: 120,
-        padding: '18px 32px',
-        margin: '0 12px',
-        borderRadius: 18,
-        background: selected
-          ? 'rgba(255,255,255,0.18)'
-          : 'rgba(40,40,60,0.22)',
-        color: selected ? '#fff' : '#e0e0e0',
-        fontWeight: 700,
-        fontSize: 24,
-        boxShadow: selected
-          ? '0 4px 32px 0 #fff8, 0 1.5px 8px #44f8'
-          : '0 1.5px 8px #0004',
-        backdropFilter: 'blur(8px)',
-        border: selected ? '2px solid #fff' : '2px solid transparent',
-        transition: 'all 0.3s cubic-bezier(.4,2,.3,1)',
-        cursor: 'pointer',
-        userSelect: 'none',
+        transform: isTopMenu ? 'rotate(180deg)' : 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+        margin: '8px 0',
+        boxSizing: 'border-box',
       }}
     >
-      {word}
+      <div className="word-controls" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button className="control-btn add" onClick={onAdd} title="Adicionar">+</button>
+        <span className="word-count">{count}</span>
+        <button className="control-btn remove" onClick={onRemove} title="Remover">-</button>
+      </div>
+      <span className="word-text" style={{ marginLeft: 16, fontWeight: 700, fontSize: '1.1rem', color: '#fff' }}>{word}</span>
     </div>
   );
 }
@@ -270,16 +306,198 @@ function WordAutoWidthCarousel({ words, selected, setSelected, isMoving, setIsMo
   );
 }
 
+// Novo componente para o menu de palavras, com rotação opcional
+function WordMenuBox({ words, onAdd, onRemove, dragProps, style, cardRotation = 0 }) {
+  return (
+    <div
+      className="words-section-top"
+      style={style}
+      {...dragProps}
+    >
+      <div className="words-header" style={{ transform: `rotate(${-cardRotation}deg)` }}>
+        Palavras
+      </div>
+      <div className="words-list">
+        {words.map(([word, count]) => (
+          <WordCard
+            key={word + cardRotation}
+            word={word}
+            count={count}
+            onAdd={() => onAdd(word)}
+            onRemove={() => onRemove(word)}
+            isTopMenu={false}
+            style={{ transform: `rotate(${cardRotation}deg)` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const canvasRef = useRef(null);
   const [words, setWords, setWordsNoPersist] = usePersistentState('wcloud-words', initialWords);
-  console.log('[DEBUG] Valor inicial de words no state:', words);
   const [selected, setSelected] = useState(initialWords[0][0]);
   const [highlight, setHighlight] = useState(false);
   const [touchDrag, setTouchDrag] = useState({ active: false, word: null, x: 0, y: 0 });
   const [isMoving, setIsMoving] = useState(false);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth > 800);
+  const [currentPage, setCurrentPage] = useState('video'); // 'main' ou 'video'
   const didMount = useRef(false);
+  // Adicionar estado e handlers para drag de cada menu
+  const [topMenuX, setTopMenuX] = useState(0);
+  const [bottomMenuX, setBottomMenuX] = useState(0);
+  const [leftMenuY, setLeftMenuY] = useState(0);
+  const [rightMenuY, setRightMenuY] = useState(0);
+
+  const isDraggingTopMenu = useRef(false);
+  const dragStartTopX = useRef(0);
+  const dragMenuStartTopX = useRef(0);
+  const handleTopMenuMouseDown = (e) => {
+    isDraggingTopMenu.current = true;
+    dragStartTopX.current = e.clientX;
+    dragMenuStartTopX.current = topMenuX;
+    document.body.style.userSelect = 'none';
+  };
+  const handleTopMenuMouseMove = (e) => {
+    if (!isDraggingTopMenu.current) return;
+    setTopMenuX(dragMenuStartTopX.current + (e.clientX - dragStartTopX.current));
+  };
+  const handleTopMenuMouseUp = () => {
+    isDraggingTopMenu.current = false;
+    document.body.style.userSelect = '';
+  };
+  useEffect(() => {
+    if (!isDraggingTopMenu.current) return;
+    window.addEventListener('mousemove', handleTopMenuMouseMove);
+    window.addEventListener('mouseup', handleTopMenuMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleTopMenuMouseMove);
+      window.removeEventListener('mouseup', handleTopMenuMouseUp);
+    };
+  }, [isDraggingTopMenu.current]);
+
+  const isDraggingBottomMenu = useRef(false);
+  const dragStartBottomX = useRef(0);
+  const dragMenuStartBottomX = useRef(0);
+  const handleBottomMenuMouseDown = (e) => {
+    isDraggingBottomMenu.current = true;
+    dragStartBottomX.current = e.clientX;
+    dragMenuStartBottomX.current = bottomMenuX;
+    document.body.style.userSelect = 'none';
+  };
+  const handleBottomMenuMouseMove = (e) => {
+    if (!isDraggingBottomMenu.current) return;
+    setBottomMenuX(dragMenuStartBottomX.current + (e.clientX - dragStartBottomX.current));
+  };
+  const handleBottomMenuMouseUp = () => {
+    isDraggingBottomMenu.current = false;
+    document.body.style.userSelect = '';
+  };
+  useEffect(() => {
+    if (!isDraggingBottomMenu.current) return;
+    window.addEventListener('mousemove', handleBottomMenuMouseMove);
+    window.addEventListener('mouseup', handleBottomMenuMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleBottomMenuMouseMove);
+      window.removeEventListener('mouseup', handleBottomMenuMouseUp);
+    };
+  }, [isDraggingBottomMenu.current]);
+
+  const isDraggingLeftMenu = useRef(false);
+  const dragStartLeftY = useRef(0);
+  const dragMenuStartLeftY = useRef(0);
+  const handleLeftMenuMouseDown = (e) => {
+    isDraggingLeftMenu.current = true;
+    dragStartLeftY.current = e.clientY;
+    dragMenuStartLeftY.current = leftMenuY;
+    document.body.style.userSelect = 'none';
+  };
+  const handleLeftMenuMouseMove = (e) => {
+    if (!isDraggingLeftMenu.current) return;
+    setLeftMenuY(dragMenuStartLeftY.current + (e.clientY - dragStartLeftY.current));
+  };
+  const handleLeftMenuMouseUp = () => {
+    isDraggingLeftMenu.current = false;
+    document.body.style.userSelect = '';
+  };
+  useEffect(() => {
+    if (!isDraggingLeftMenu.current) return;
+    window.addEventListener('mousemove', handleLeftMenuMouseMove);
+    window.addEventListener('mouseup', handleLeftMenuMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleLeftMenuMouseMove);
+      window.removeEventListener('mouseup', handleLeftMenuMouseUp);
+    };
+  }, [isDraggingLeftMenu.current]);
+
+  const isDraggingRightMenu = useRef(false);
+  const dragStartRightY = useRef(0);
+  const dragMenuStartRightY = useRef(0);
+  const handleRightMenuMouseDown = (e) => {
+    isDraggingRightMenu.current = true;
+    dragStartRightY.current = e.clientY;
+    dragMenuStartRightY.current = rightMenuY;
+    document.body.style.userSelect = 'none';
+  };
+  const handleRightMenuMouseMove = (e) => {
+    if (!isDraggingRightMenu.current) return;
+    setRightMenuY(dragMenuStartRightY.current + (e.clientY - dragStartRightY.current));
+  };
+  const handleRightMenuMouseUp = () => {
+    isDraggingRightMenu.current = false;
+    document.body.style.userSelect = '';
+  };
+  useEffect(() => {
+    if (!isDraggingRightMenu.current) return;
+    window.addEventListener('mousemove', handleRightMenuMouseMove);
+    window.addEventListener('mouseup', handleRightMenuMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleRightMenuMouseMove);
+      window.removeEventListener('mouseup', handleRightMenuMouseUp);
+    };
+  }, [isDraggingRightMenu.current]);
+
+  // Teste de carregamento da fonte
+  useEffect(() => {
+    console.log('🔤 [DEBUG] Testando carregamento da fonte Rawline');
+    
+    // Teste 1: Verificar se a fonte está disponível
+    if (document.fonts && document.fonts.check) {
+      const isRawlineLoaded = document.fonts.check('1em Rawline');
+      console.log('📋 [DEBUG] Fonte Rawline carregada:', isRawlineLoaded);
+      
+      // Teste 2: Verificar diferentes pesos
+      const weights = [300, 400, 700, 800, 900];
+      weights.forEach(weight => {
+        const isWeightLoaded = document.fonts.check(`${weight} 1em Rawline`);
+        console.log(`📋 [DEBUG] Rawline ${weight}:`, isWeightLoaded);
+      });
+    }
+    
+    // Teste 3: Criar um elemento de teste para verificar a fonte
+    const testElement = document.createElement('div');
+    testElement.style.fontFamily = 'Rawline, sans-serif';
+    testElement.style.fontWeight = '900';
+    testElement.style.fontSize = '24px';
+    testElement.style.position = 'absolute';
+    testElement.style.left = '-9999px';
+    testElement.textContent = 'Teste Rawline 900';
+    document.body.appendChild(testElement);
+    
+    // Verificar se a fonte foi aplicada
+    const computedStyle = window.getComputedStyle(testElement);
+    console.log('🎨 [DEBUG] Fonte computada do teste:', {
+      fontFamily: computedStyle.fontFamily,
+      fontWeight: computedStyle.fontWeight,
+      fontSize: computedStyle.fontSize
+    });
+    
+    // Limpar o elemento de teste
+    setTimeout(() => {
+      document.body.removeChild(testElement);
+    }, 1000);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth > 800);
@@ -403,13 +621,33 @@ function App() {
   // Atualiza a nuvem de palavras
   useEffect(() => {
     if (canvasRef.current) {
+      console.log('🚀 [DEBUG] Iniciando renderização do WordCloud');
       const options = {
         ...optionsBase,
         list: words,
+        draw: optionsBase.draw, // forçar explicitamente
         drawOutOfBound: false,
         drawMask: false,
       };
+      console.log('⚙️ [DEBUG] Opções do WordCloud:', {
+        listLength: words.length,
+        hasDrawFunction: typeof options.draw === 'function',
+        drawFunctionName: options.draw.name,
+        fontFamily: options.fontFamily
+      });
       WordCloud(canvasRef.current, options);
+      console.log('✅ [DEBUG] WordCloud chamado com sucesso');
+
+      // TESTE: Escrever uma palavra no centro do canvas usando Rawline 900
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.save();
+      ctx.font = '900 64px Rawline, sans-serif';
+      ctx.fillStyle = '#ff00cc';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('TESTE RAWLINE 900', canvasRef.current.width / 2, canvasRef.current.height / 2);
+      ctx.restore();
+      console.log('🟣 [DEBUG] TESTE RAWLINE 900 desenhado no centro do canvas');
     }
     // eslint-disable-next-line
   }, [words]);
@@ -419,18 +657,132 @@ function App() {
     setWords(prev => {
       const updated = prev.map(([w, v]) => {
         if (w === word) {
-          console.log('[DEBUG] Incrementando palavra:', w, 'Valor antes:', v, 'Valor depois:', v + 1);
           return [w, v + 1];
         }
         return [w, v];
       });
-      console.log('[DEBUG] Novo array após incremento:', updated);
       return updated;
     });
   };
 
+  // Renderiza a página baseada no estado
+  if (currentPage === 'video') {
+    return <VideoWordCloud />;
+  }
+
   return (
     <div style={{ position: 'relative', minHeight: '100vh', width: '100vw', overflow: 'hidden', background: 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      {/* Header com navegação */}
+      <header style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        padding: '20px', 
+        textAlign: 'center', 
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        maxWidth: '1200px',
+        margin: '0 auto',
+        zIndex: 10,
+        background: 'rgba(10, 42, 90, 0.9)',
+        backdropFilter: 'blur(10px)'
+      }}>
+        <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: 900, color: '#fff' }}>WordCloud</h1>
+        <div style={{ display: 'flex', gap: '15px' }}>
+          <button 
+            onClick={() => setCurrentPage('main')}
+            style={{
+              padding: '10px 20px',
+              background: currentPage === 'main' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '20px',
+              color: '#fff',
+              cursor: 'pointer',
+              fontWeight: 600
+            }}
+          >
+            Principal
+          </button>
+          <button 
+            onClick={() => setCurrentPage('video')}
+            style={{
+              padding: '10px 20px',
+              background: currentPage === 'video' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '20px',
+              color: '#fff',
+              cursor: 'pointer',
+              fontWeight: 600
+            }}
+          >
+            Com Vídeo
+          </button>
+        </div>
+      </header>
+      {/* Menu superior colaborativo */}
+      <WordMenuBox
+        words={words}
+        onAdd={incrementWord}
+        onRemove={word => setWords(prev => prev.map(([w, v]) => w === word ? [w, Math.max(0, v - 1)] : [w, v]))}
+        dragProps={{ onMouseDown: handleTopMenuMouseDown }}
+        style={{
+          left: `calc(50% + ${topMenuX}px)`,
+          position: 'fixed',
+          top: 40,
+          transform: 'translateX(-50%) scale(0.7) rotate(180deg)',
+          zIndex: 20,
+          cursor: 'grab',
+        }}
+        cardRotation={180}
+      />
+      <WordMenuBox
+        words={words}
+        onAdd={incrementWord}
+        onRemove={word => setWords(prev => prev.map(([w, v]) => w === word ? [w, Math.max(0, v - 1)] : [w, v]))}
+        dragProps={{ onMouseDown: handleBottomMenuMouseDown }}
+        style={{
+          left: `calc(50% + ${bottomMenuX}px)`,
+          position: 'fixed',
+          bottom: 40,
+          transform: 'translateX(-50%) scale(0.7) rotate(0deg)',
+          zIndex: 20,
+          cursor: 'grab',
+        }}
+        cardRotation={0}
+      />
+      <WordMenuBox
+        words={words}
+        onAdd={incrementWord}
+        onRemove={word => setWords(prev => prev.map(([w, v]) => w === word ? [w, Math.max(0, v - 1)] : [w, v]))}
+        dragProps={{ onMouseDown: handleLeftMenuMouseDown }}
+        style={{
+          top: `calc(50% + ${leftMenuY}px)`,
+          position: 'fixed',
+          left: 40,
+          transform: 'translateY(-50%) scale(0.7) rotate(90deg)',
+          zIndex: 20,
+          cursor: 'grab',
+        }}
+        cardRotation={90}
+      />
+      <WordMenuBox
+        words={words}
+        onAdd={incrementWord}
+        onRemove={word => setWords(prev => prev.map(([w, v]) => w === word ? [w, Math.max(0, v - 1)] : [w, v]))}
+        dragProps={{ onMouseDown: handleRightMenuMouseDown }}
+        style={{
+          top: `calc(50% + ${rightMenuY}px)`,
+          position: 'fixed',
+          right: 40,
+          transform: 'translateY(-50%) scale(0.7) rotate(-90deg)',
+          zIndex: 20,
+          cursor: 'grab',
+        }}
+        cardRotation={-90}
+      />
       <video
         autoPlay
         loop
@@ -457,18 +809,9 @@ function App() {
         alignItems: 'center',
         justifyContent: 'center',
         background: 'transparent',
+        paddingTop: '80px', // Espaço para o header fixo
       }}>
         {/* Conteúdo principal acima do fundo */}
-        <WordAutoWidthCarousel
-          words={words}
-          selected={selected}
-          setSelected={setSelected}
-          isMoving={isMoving}
-          setIsMoving={setIsMoving}
-          onAdd={incrementWord}
-          onDragStart={onDragStart}
-          isDesktop={isDesktop}
-        />
         <canvas
           ref={canvasRef}
           width={900}
@@ -485,7 +828,7 @@ function App() {
           onDragLeave={onDragLeave}
         />
       </div>
-    </div>
+      </div>
   );
 }
 

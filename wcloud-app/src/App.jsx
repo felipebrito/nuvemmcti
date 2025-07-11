@@ -123,37 +123,53 @@ function usePersistentState(key, initialValue) {
   const [state, setState] = useState(() => {
     try {
       const item = window.localStorage.getItem(key);
+      console.log(`[APP] Loading ${key} from localStorage:`, item);
       if (item) {
         const parsed = JSON.parse(item);
+        console.log(`[APP] Parsed ${key}:`, parsed);
         if (Array.isArray(parsed) && parsed.every(item => Array.isArray(item) && typeof item[0] === 'string' && typeof item[1] === 'number')) {
+          console.log(`[APP] Using loaded ${key}:`, parsed);
           return parsed;
+        } else {
+          console.log(`[APP] Validation failed for ${key}, using initial value`);
         }
       }
     } catch (e) {
-      // ignore
+      console.error(`[APP] Error loading ${key}:`, e);
     }
+    console.log(`[APP] Using initial value for ${key}:`, initialValue);
     return initialValue;
   });
   const isFirst = useRef(true);
   const ignoreNextPersist = useRef(false);
   useEffect(() => {
     if (isFirst.current) {
+      console.log(`[APP] First render for ${key}, skipping save`);
       isFirst.current = false;
       return;
     }
     if (ignoreNextPersist.current) {
+      console.log(`[APP] Ignoring save for ${key}`);
       ignoreNextPersist.current = false;
       return;
     }
     try {
+      console.log(`[APP] Saving ${key} to localStorage:`, state);
       window.localStorage.setItem(key, JSON.stringify(state));
-      // console.log('[DEBUG] usePersistentState: Salvo no localStorage:', state);
+      
+      // Verificar se está sobrescrevendo dados do VideoWordCloud
+      if (key === 'wcloud-words') {
+        const videoKey = 'video-wcloud-words-v2';
+        const videoData = window.localStorage.getItem(videoKey);
+        console.log(`[APP] After saving ${key}, checking ${videoKey}:`, videoData);
+      }
     } catch (e) {
-      // ignore
+      console.error(`[APP] Error saving ${key}:`, e);
     }
   }, [key, state]);
   // Função especial para reset temporário
   const setStateNoPersist = (value) => {
+    console.log(`[APP] setStateNoPersist called for ${key}:`, value);
     ignoreNextPersist.current = true;
     setState(value);
   };
@@ -335,6 +351,7 @@ function WordMenuBox({ words, onAdd, onRemove, dragProps, style, cardRotation = 
 }
 
 function App() {
+  console.log('[APP] App component rendering');
   const canvasRef = useRef(null);
   const [words, setWords, setWordsNoPersist] = usePersistentState('wcloud-words', initialWords);
   const [selected, setSelected] = useState(initialWords[0][0]);

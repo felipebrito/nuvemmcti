@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import cloud from 'd3-cloud';
 import './VideoWordCloud.css';
 
@@ -14,39 +14,90 @@ const initialWords = [
   ['Conhecimento', 0], ['União', 0], ['Amor', 0],
 ];
 
-function usePersistentState(key, initialValue) {
+// Configurações padrão dos boxes
+const defaultBoxConfig = {
+  top: { x: 0, y: 0, rotation: 0, scale: 0.7, enabled: true },
+  bottom: { x: 0, y: 0, rotation: 0, scale: 0.7, enabled: true },
+  left: { x: 0, y: 0, rotation: 90, scale: 0.7, enabled: true },
+  right: { x: 0, y: 0, rotation: -90, scale: 0.7, enabled: true }
+};
+
+// HOOK DE PERSISTÊNCIA SIMPLES E FUNCIONAL
+function usePersistentState(key, initialValue, onDataRecovered) {
   const [state, setState] = useState(() => {
+    console.log(`[PERSIST] Loading ${key}...`);
+    
+    // Tentar carregar do localStorage
     try {
-      const item = window.localStorage.getItem(key);
-      if (item) {
-        const parsed = JSON.parse(item);
-        if (Array.isArray(parsed) && parsed.every(item => Array.isArray(item) && typeof item[0] === 'string' && typeof item[1] === 'number')) {
+      const saved = localStorage.getItem(key);
+      console.log(`[PERSIST] Trying ${key}:`, saved);
+      
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          console.log(`[PERSIST] Found valid data in ${key}:`, parsed);
           return parsed;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error(`Error loading from ${key}:`, e);
+    }
+    
+    console.log(`[PERSIST] Using initial value for ${key}:`, initialValue);
     return initialValue;
   });
-  const isFirst = useRef(true);
-  const ignoreNextPersist = useRef(false);
+
   useEffect(() => {
-    if (isFirst.current) {
-      isFirst.current = false;
-      return;
-    }
-    if (ignoreNextPersist.current) {
-      ignoreNextPersist.current = false;
-      return;
-    }
+    console.log(`[PERSIST] useEffect triggered for ${key}:`, state);
+    console.log(`[PERSIST] State type:`, typeof state);
+    console.log(`[PERSIST] State length:`, Array.isArray(state) ? state.length : 'not array');
+    
     try {
-      window.localStorage.setItem(key, JSON.stringify(state));
-    } catch (e) {}
+      const jsonData = JSON.stringify(state);
+      console.log(`[PERSIST] JSON data:`, jsonData);
+      localStorage.setItem(key, jsonData);
+      console.log(`[PERSIST] Successfully saved to localStorage`);
+      
+      // Verificar se foi salvo
+      const verify = localStorage.getItem(key);
+      console.log(`[PERSIST] Verification:`, verify);
+    } catch (e) {
+      console.error('Error saving data:', e);
+    }
   }, [key, state]);
-  const setStateNoPersist = (value) => {
-    ignoreNextPersist.current = true;
-    setState(value);
-  };
-  return [state, setState, setStateNoPersist];
+
+  return [state, setState];
+}
+
+// Hook para configurações dos boxes
+function useBoxConfig() {
+  const [config, setConfig] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem('box-config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Validação simples: se tem a estrutura esperada, usa ela
+        if (parsed && 
+            typeof parsed === 'object' &&
+            parsed.top && parsed.bottom && parsed.left && parsed.right) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error('Error loading box config:', e);
+    }
+    return defaultBoxConfig;
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('box-config', JSON.stringify(config));
+    } catch (e) {
+      console.error('Error saving box config:', e);
+    }
+  }, [config]);
+
+  return [config, setConfig];
 }
 
 function getFontWeight(size) {
@@ -205,16 +256,140 @@ function WordCard({ word, count, onAdd, onRemove }) {
   );
 }
 
+// Componente de Menu de Controle
+function ControlMenu({ config, setConfig, isOpen, onClose }) {
+  const [localConfig, setLocalConfig] = useState(config);
+
+  // Sempre que o menu abrir, puxe o valor mais recente do config
+  useEffect(() => {
+    if (isOpen) {
+      setLocalConfig(config);
+    }
+  }, [isOpen, config]);
+
+  const handleSave = () => {
+    setConfig(localConfig);
+    onClose();
+  };
+
+  const handleReset = () => {
+    setLocalConfig(defaultBoxConfig);
+  };
+
+  const updateBoxConfig = (box, field, value) => {
+    const newConfig = {
+      ...localConfig,
+      [box]: {
+        ...localConfig[box],
+        [field]: value
+      }
+    };
+    setLocalConfig(newConfig);
+    // Persistir imediatamente
+    setConfig(newConfig);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="control-menu-overlay" onClick={onClose}>
+      <div className="control-menu" onClick={e => e.stopPropagation()}>
+        <div className="control-menu-header">
+          <h3>Configurações dos Boxes</h3>
+          <button className="close-btn" onClick={onClose}>×</button>
+        </div>
+        
+        <div className="control-menu-content">
+          {Object.entries(localConfig).map(([boxName, boxConfig]) => (
+            <div key={boxName} className="box-config-section">
+              <div className="box-config-header">
+                <label className="box-toggle">
+                  <input
+                    type="checkbox"
+                    checked={boxConfig.enabled}
+                    onChange={(e) => updateBoxConfig(boxName, 'enabled', e.target.checked)}
+                  />
+                  <span className="box-name">{boxName.toUpperCase()}</span>
+                </label>
+              </div>
+              
+              {boxConfig.enabled && (
+                <div className="box-config-controls">
+                  <div className="control-group">
+                    <label>Posição X:</label>
+                    <input
+                      type="range"
+                      min="-200"
+                      max="200"
+                      value={boxConfig.x}
+                      onChange={(e) => updateBoxConfig(boxName, 'x', parseInt(e.target.value))}
+                    />
+                    <span className="value-display">{boxConfig.x}px</span>
+                  </div>
+                  
+                  <div className="control-group">
+                    <label>{boxName === 'left' ? 'Altura (bottom):' : 'Posição Y:'}</label>
+                    <input
+                      type="range"
+                      min="-200"
+                      max="800"
+                      value={boxConfig.y}
+                      onChange={(e) => updateBoxConfig(boxName, 'y', parseInt(e.target.value))}
+                    />
+                    <span className="value-display">{boxConfig.y}px</span>
+                  </div>
+                  
+                  {/* Só mostra rotação se não for o box top */}
+                  <div className="control-group">
+                    <label>Rotação:</label>
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      value={boxConfig.rotation}
+                      onChange={(e) => updateBoxConfig(boxName, 'rotation', parseInt(e.target.value))}
+                    />
+                    <span className="value-display">{boxConfig.rotation}°</span>
+                  </div>
+                  <div className="control-group">
+                    <label>Escala:</label>
+                    <input
+                      type="range"
+                      min="0.3"
+                      max="1.2"
+                      step="0.1"
+                      value={boxConfig.scale}
+                      onChange={(e) => updateBoxConfig(boxName, 'scale', parseFloat(e.target.value))}
+                    />
+                    <span className="value-display">{boxConfig.scale}x</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        
+        <div className="control-menu-footer">
+          <button className="reset-btn" onClick={handleReset}>Resetar</button>
+          <button className="save-btn" onClick={handleSave}>Salvar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Componente WordMenuBox com classes CSS específicas
-function WordMenuBox({ words, onAdd, onRemove, dragProps, sectionClass, style, cardRotation = 0 }) {
+function WordMenuBox({ words, onAdd, onRemove, dragProps, sectionClass, style, cardRotation = 0, enabled = true, headerStyle }) {
+  if (!enabled) return null;
+  
   return (
     <div
       className={sectionClass}
       style={style}
       {...dragProps}
     >
-      <div className="words-header">
-        Palavras
+      <div className="words-header" style={headerStyle}>
+
       </div>
       <div className="words-list">
         {words.map(([word, count]) => (
@@ -233,72 +408,82 @@ function WordMenuBox({ words, onAdd, onRemove, dragProps, sectionClass, style, c
 }
 
 function VideoWordCloud() {
-  const [words, setWords, setWordsNoPersist] = usePersistentState('video-wcloud-words', initialWords);
+  // Usar apenas o novo hook, sem resets automáticos
+  const [words, setWords] = usePersistentState('wcloud-words', initialWords);
+  
+  // Monitoramento simples
+  useEffect(() => {
+    const checkStorage = () => {
+      const saved = localStorage.getItem('wcloud-words');
+      console.log(`[MONITOR] Current localStorage data:`, saved);
+    };
+    
+    // Verificar a cada 5 segundos
+    const interval = setInterval(checkStorage, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
   const [videoError, setVideoError] = useState(false);
   const videoRef = useRef(null);
-  const [topBoxX, setTopBoxX] = useState(0); // posição horizontal do menu superior
-  const dragData = useRef({ dragging: false, startX: 0, lastX: 0 });
   const [touchDrag, setTouchDrag] = useState({ active: false, word: null, x: 0, y: 0 });
   const wordcloudRef = useRef();
+  const [boxConfig, setBoxConfig] = useBoxConfig();
+  const [controlMenuOpen, setControlMenuOpen] = useState(false);
 
-  // Funções de drag customizado para o menu superior
-  function handleTopBoxMouseDown(e) {
-    dragData.current.dragging = true;
-    dragData.current.startX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-    dragData.current.lastX = topBoxX;
-    document.addEventListener('mousemove', handleTopBoxMouseMove);
-    document.addEventListener('mouseup', handleTopBoxMouseUp);
-    document.addEventListener('touchmove', handleTopBoxMouseMove, { passive: false });
-    document.addEventListener('touchend', handleTopBoxMouseUp);
-  }
-  function handleTopBoxMouseMove(e) {
-    if (!dragData.current.dragging) return;
-    const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-    const delta = clientX - dragData.current.startX;
-    setTopBoxX(Math.max(-window.innerWidth * 0.25, Math.min(window.innerWidth * 0.25, dragData.current.lastX + delta)));
-    if (e.type === 'touchmove') e.preventDefault();
-  }
-  function handleTopBoxMouseUp() {
-    dragData.current.dragging = false;
-    document.removeEventListener('mousemove', handleTopBoxMouseMove);
-    document.removeEventListener('mouseup', handleTopBoxMouseUp);
-    document.removeEventListener('touchmove', handleTopBoxMouseMove);
-    document.removeEventListener('touchend', handleTopBoxMouseUp);
-  }
-
-  // Atalho de teclado para resetar
+  // Controle de teclado
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'r' || e.key === 'R') {
-        setWords(initialWords);
+      if (e.key === 'c' || e.key === 'C') {
+        setControlMenuOpen(prev => !prev);
+      } else if (e.key === 'Escape') {
+        setControlMenuOpen(false);
+      } else if (e.key === 'r' || e.key === 'R') {
+        console.log('[VIDEO] Reset triggered by R key');
+        localStorage.removeItem('wcloud-words');
+        window.location.reload();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setWords]);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []); // Removida a dependência setWords
 
   // Adiciona uma palavra
   const addWord = (word) => {
-    const existingIndex = words.findIndex(([w]) => w === word);
-    if (existingIndex >= 0) {
-      const newWords = [...words];
-      newWords[existingIndex] = [word, Math.min(newWords[existingIndex][1] + 1, 12)];
-      setWords(newWords);
-    } else {
-      setWords([...words, [word, 1]]);
-    }
+    console.log(`[VIDEO] Adding word: ${word}`);
+    console.log(`[VIDEO] Current words before:`, words);
+    
+    setWords(prev => {
+      console.log(`[VIDEO] setWords callback called with prev:`, prev);
+      const existing = prev.find(([w]) => w === word);
+      if (existing) {
+        const newState = prev.map(([w, count]) => w === word ? [w, count + 1] : [w, count]);
+        console.log(`[VIDEO] Updated existing word: ${word}, new state:`, newState);
+        return newState;
+      } else {
+        const newState = [...prev, [word, 1]];
+        console.log(`[VIDEO] Added new word: ${word}, new state:`, newState);
+        return newState;
+      }
+    });
+    
+    console.log(`[VIDEO] addWord function completed`);
   };
   // Remove uma palavra
   const removeWord = (word) => {
+    console.log(`[VIDEO] Removing word: ${word}`);
     const existingIndex = words.findIndex(([w]) => w === word);
     if (existingIndex >= 0) {
       const currentCount = words[existingIndex][1];
       if (currentCount > 1) {
         const newWords = [...words];
         newWords[existingIndex] = [word, currentCount - 1];
+        console.log(`[VIDEO] Decreased word count: ${word}, new state:`, newWords);
         setWords(newWords);
       } else {
-        setWords(words.filter(([w]) => w !== word));
+        const newWords = words.filter(([w]) => w !== word);
+        console.log(`[VIDEO] Removed word completely: ${word}, new state:`, newWords);
+        setWords(newWords);
       }
     }
   };
@@ -306,13 +491,10 @@ function VideoWordCloud() {
   const handleDropWord = (word) => {
     addWord(word);
   };
-  // Todas as palavras para o menu
-  const allWords = initialWords.map(([w]) => {
-    const found = words.find(([w2]) => w2 === w);
-    return [w, found ? found[1] : 0];
-  });
   // Palavras na nuvem
   const cloudWords = words.filter(([w, count]) => count > 0);
+  
+
 
   // Função para drag visual em touch
   function handleTouchDrag(word, e, end = false, move = false) {
@@ -372,145 +554,67 @@ function VideoWordCloud() {
     }
   }
 
-  // Estados e handlers para drag dos 4 menus
-  const [topMenuX, setTopMenuX] = useState(0);
-  const [bottomMenuX, setBottomMenuX] = useState(0);
-  const [leftMenuY, setLeftMenuY] = useState(0);
-  const [rightMenuY, setRightMenuY] = useState(0);
 
-  const isDraggingTopMenu = useRef(false);
-  const dragStartTopX = useRef(0);
-  const dragMenuStartTopX = useRef(0);
-  function handleTopMenuMouseDown(e) {
-    isDraggingTopMenu.current = true;
-    dragStartTopX.current = e.clientX;
-    dragMenuStartTopX.current = topMenuX;
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', handleTopMenuMouseMove);
-    document.addEventListener('mouseup', handleTopMenuMouseUp);
-  }
-  function handleTopMenuMouseMove(e) {
-    if (!isDraggingTopMenu.current) return;
-    setTopMenuX(dragMenuStartTopX.current + (e.clientX - dragStartTopX.current));
-  }
-  function handleTopMenuMouseUp() {
-    isDraggingTopMenu.current = false;
-    document.body.style.userSelect = '';
-    document.removeEventListener('mousemove', handleTopMenuMouseMove);
-    document.removeEventListener('mouseup', handleTopMenuMouseUp);
-  }
 
-  const isDraggingBottomMenu = useRef(false);
-  const dragStartBottomX = useRef(0);
-  const dragMenuStartBottomX = useRef(0);
-  function handleBottomMenuMouseDown(e) {
-    isDraggingBottomMenu.current = true;
-    dragStartBottomX.current = e.clientX;
-    dragMenuStartBottomX.current = bottomMenuX;
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', handleBottomMenuMouseMove);
-    document.addEventListener('mouseup', handleBottomMenuMouseUp);
-  }
-  function handleBottomMenuMouseMove(e) {
-    if (!isDraggingBottomMenu.current) return;
-    setBottomMenuX(dragMenuStartBottomX.current + (e.clientX - dragStartBottomX.current));
-  }
-  function handleBottomMenuMouseUp() {
-    isDraggingBottomMenu.current = false;
-    document.body.style.userSelect = '';
-    document.removeEventListener('mousemove', handleBottomMenuMouseMove);
-    document.removeEventListener('mouseup', handleBottomMenuMouseUp);
-  }
 
-  const isDraggingLeftMenu = useRef(false);
-  const dragStartLeftY = useRef(0);
-  const dragMenuStartLeftY = useRef(0);
-  function handleLeftMenuMouseDown(e) {
-    isDraggingLeftMenu.current = true;
-    dragStartLeftY.current = e.clientY;
-    dragMenuStartLeftY.current = leftMenuY;
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', handleLeftMenuMouseMove);
-    document.addEventListener('mouseup', handleLeftMenuMouseUp);
-  }
-  function handleLeftMenuMouseMove(e) {
-    if (!isDraggingLeftMenu.current) return;
-    setLeftMenuY(dragMenuStartLeftY.current + (e.clientY - dragStartLeftY.current));
-  }
-  function handleLeftMenuMouseUp() {
-    isDraggingLeftMenu.current = false;
-    document.body.style.userSelect = '';
-    document.removeEventListener('mousemove', handleLeftMenuMouseMove);
-    document.removeEventListener('mouseup', handleLeftMenuMouseUp);
-  }
-
-  const isDraggingRightMenu = useRef(false);
-  const dragStartRightY = useRef(0);
-  const dragMenuStartRightY = useRef(0);
-  function handleRightMenuMouseDown(e) {
-    isDraggingRightMenu.current = true;
-    dragStartRightY.current = e.clientY;
-    dragMenuStartRightY.current = rightMenuY;
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', handleRightMenuMouseMove);
-    document.addEventListener('mouseup', handleRightMenuMouseUp);
-  }
-  function handleRightMenuMouseMove(e) {
-    if (!isDraggingRightMenu.current) return;
-    setRightMenuY(dragMenuStartRightY.current + (e.clientY - dragStartRightY.current));
-  }
-  function handleRightMenuMouseUp() {
-    isDraggingRightMenu.current = false;
-    document.body.style.userSelect = '';
-    document.removeEventListener('mousemove', handleRightMenuMouseMove);
-    document.removeEventListener('mouseup', handleRightMenuMouseUp);
-  }
-
+  
   return (
     <div className="video-wordcloud-container">
       <WordMenuBox
-        words={allWords}
+        words={words}
         onAdd={addWord}
         onRemove={removeWord}
-        dragProps={{ onMouseDown: handleTopMenuMouseDown }}
         sectionClass="words-section-top"
         style={{
-          left: `calc(50% + ${topMenuX}px)`,
+          position: 'fixed',
+          left: `calc(50% + ${boxConfig.top.x}px)`,
+          top: `calc(24px + ${boxConfig.top.y}px)`,
+          transform: `translate(-50%, 0) scale(${boxConfig.top.scale}) rotate(180deg)`
         }}
-        cardRotation={180}
+        cardRotation={boxConfig.top.rotation}
+        enabled={boxConfig.top.enabled}
       />
       <WordMenuBox
-        words={allWords}
+        words={words}
         onAdd={addWord}
         onRemove={removeWord}
-        dragProps={{ onMouseDown: handleBottomMenuMouseDown }}
         sectionClass="words-section-bottom"
         style={{
-          left: `calc(50% + ${bottomMenuX}px)`,
+          position: 'fixed',
+          left: `calc(50% + ${boxConfig.bottom.x}px)`,
+          bottom: `calc(24px + ${boxConfig.bottom.y}px)`,
+          transform: `translate(-50%, 0) scale(${boxConfig.bottom.scale}) rotate(0deg)`
         }}
         cardRotation={0}
+        enabled={boxConfig.bottom.enabled}
       />
       <WordMenuBox
-        words={allWords}
+        words={words}
         onAdd={addWord}
         onRemove={removeWord}
-        dragProps={{ onMouseDown: handleLeftMenuMouseDown }}
         sectionClass="words-section-left"
         style={{
-          top: `calc(50% + ${leftMenuY}px)`,
+          position: 'fixed',
+          left: `calc(50% + ${boxConfig.left.x}px)`,
+          bottom: `calc(${boxConfig.left.y}px)`,
+          transform: `translate(-850px, -400px) scale(${boxConfig.left.scale}) rotate(90deg)`
         }}
         cardRotation={90}
+        enabled={boxConfig.left.enabled}
       />
       <WordMenuBox
-        words={allWords}
+        words={words}
         onAdd={addWord}
         onRemove={removeWord}
-        dragProps={{ onMouseDown: handleRightMenuMouseDown }}
         sectionClass="words-section-right"
         style={{
-          top: `calc(50% + ${rightMenuY}px)`,
+          position: 'fixed',
+          right: `calc(24px + -90px)`,
+          top: `calc(50% + ${boxConfig.right.y}px)`,
+          transform: `translate(0, -110px) scale(${boxConfig.right.scale}) rotate(-90deg)`
         }}
-        cardRotation={-90}
+        cardRotation={90}
+        enabled={boxConfig.right.enabled}
       />
       {/* Vídeo de fundo */}
       {!videoError && (
@@ -548,6 +652,22 @@ function VideoWordCloud() {
               <p>Adicione palavras para ver a nuvem se formar</p>
             </div>
           )}
+        </div>
+      </div>
+      <ControlMenu
+        config={boxConfig}
+        setConfig={setBoxConfig}
+        isOpen={controlMenuOpen}
+        onClose={() => setControlMenuOpen(false)}
+      />
+      <div className="shortcuts-hint">
+        <div className="shortcut-item">
+          <span className="key">C</span>
+          <span className="description">Configurações</span>
+        </div>
+        <div className="shortcut-item">
+          <span className="key">R</span>
+          <span className="description">Resetar</span>
         </div>
       </div>
     </div>

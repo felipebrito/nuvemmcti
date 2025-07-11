@@ -117,9 +117,161 @@ function weightFactor(value) {
 function D3WordCloud({ words, width = 1200, height = 600, onDropWord, isTouchDragging }) {
   const canvasRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
+  const [positionedWords, setPositionedWords] = useState([]);
+  const [wordAnimations, setWordAnimations] = useState({});
+
+  // Função de easing suave (ease-in-out)
+  function easeInOut(t) {
+    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+  }
+
+  // Função de easing baseada no spinner (ease-in-out com scale)
+  function easeBounce(t) {
+    // Simula o movimento do spinner: escala de 0 a 1 e volta
+    if (t < 0.5) {
+      // Primeira metade: escala de 0 a 1 (ease-in)
+      return 2 * t * t;
+    } else {
+      // Segunda metade: escala de 1 a 0 (ease-out)
+      const f = 2 * t - 2;
+      return 1 - f * f / 2;
+    }
+  }
+
+  // Função de easing para flutuação natural (ondulante)
+  function easeFloat(t) {
+    // Movimento ondulante suave como uma onda
+    return 0.5 + 0.5 * Math.sin(t * Math.PI * 2);
+  }
+
+  // Função para criar animação suave baseada no spinner
+  function createSmoothAnimation(start, end, duration, startTime) {
+    const elapsed = (Date.now() - startTime) / 1000;
+    const progress = Math.min(elapsed / duration, 1);
+    const easedProgress = easeBounce(progress);
+    return start + (end - start) * easedProgress;
+  }
+
+  // Função para criar flutuação natural
+  function createFloatAnimation(start, end, duration, startTime) {
+    const elapsed = (Date.now() - startTime) / 1000;
+    const progress = Math.min(elapsed / duration, 1);
+    const easedProgress = easeFloat(progress);
+    return start + (end - start) * easedProgress;
+  }
+
+  function draw(words) {
+    if (!canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, width, height);
+    
+    const currentTime = Date.now();
+    
+    words.forEach((word, index) => {
+      const wordKey = `${word.text}-${index}`;
+      
+      // Inicializar animação se não existir
+      if (!wordAnimations[wordKey]) {
+        wordAnimations[wordKey] = {
+          floatX: { start: 0, end: (Math.random() - 0.5) * 3, duration: 2 + Math.random() * 0.5, startTime: currentTime },
+          floatY: { start: 0, end: (Math.random() - 0.5) * 2, duration: 2.5 + Math.random() * 0.5, startTime: currentTime },
+          glow: { start: 0.3, end: 0.8, duration: 2 + Math.random() * 0.3, startTime: currentTime },
+          alpha: { start: 0.4, end: 0.7, duration: 2.2 + Math.random() * 0.4, startTime: currentTime }
+        };
+      }
+      
+      const anim = wordAnimations[wordKey];
+      
+      // Calcular posições suaves
+      const floatX = createFloatAnimation(anim.floatX.start, anim.floatX.end, anim.floatX.duration, anim.floatX.startTime);
+      const floatY = createFloatAnimation(anim.floatY.start, anim.floatY.end, anim.floatY.duration, anim.floatY.startTime);
+      const glow = createSmoothAnimation(anim.glow.start, anim.glow.end, anim.glow.duration, anim.glow.startTime);
+      const alpha = createSmoothAnimation(anim.alpha.start, anim.alpha.end, anim.alpha.duration, anim.alpha.startTime);
+      
+      // Verificar se a animação terminou e criar nova
+      const elapsedX = (currentTime - anim.floatX.startTime) / 1000;
+      const elapsedY = (currentTime - anim.floatY.startTime) / 1000;
+      const elapsedGlow = (currentTime - anim.glow.startTime) / 1000;
+      const elapsedAlpha = (currentTime - anim.alpha.startTime) / 1000;
+      
+      if (elapsedX >= anim.floatX.duration) {
+        anim.floatX.start = anim.floatX.end;
+        anim.floatX.end = (Math.random() - 0.5) * 3; // ±1.5px
+        anim.floatX.duration = 2 + Math.random() * 0.5;
+        anim.floatX.startTime = currentTime;
+      }
+      
+      if (elapsedY >= anim.floatY.duration) {
+        anim.floatY.start = anim.floatY.end;
+        anim.floatY.end = (Math.random() - 0.5) * 2; // ±1px
+        anim.floatY.duration = 2.5 + Math.random() * 0.5;
+        anim.floatY.startTime = currentTime;
+      }
+      
+      if (elapsedGlow >= anim.glow.duration) {
+        anim.glow.start = anim.glow.end;
+        anim.glow.end = 0.3 + Math.random() * 0.5; // 0.3-0.8
+        anim.glow.duration = 2 + Math.random() * 0.3;
+        anim.glow.startTime = currentTime;
+      }
+      
+      if (elapsedAlpha >= anim.alpha.duration) {
+        anim.alpha.start = anim.alpha.end;
+        anim.alpha.end = 0.4 + Math.random() * 0.3; // 0.4-0.7
+        anim.alpha.duration = 2.2 + Math.random() * 0.4;
+        anim.alpha.startTime = currentTime;
+      }
+      
+      // Brilho individual para cada palavra
+      const alphaGlow = glow;
+      const shadowBlur = 8 + 24 * glow;
+      
+      // Cor baseada no índice da palavra (efeito arco-íris sutil)
+      const hue = (index * 30) % 360;
+      const saturation = 20 + (glow * 30); // 20-50%
+      const lightness = 70 + (glow * 20); // 70-90%
+      
+      ctx.save();
+      ctx.font = `${word.weight} ${word.size}px Rawline, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.translate(word.x + width / 2 + floatX, word.y + height / 2 + floatY);
+      ctx.rotate(word.rotate * Math.PI / 180);
+      
+      // Primeira camada: base com cor sutil e transparência animada
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
+      ctx.fillText(word.text, 0, 0);
+      
+      // Segunda camada: brilho animado individual
+      ctx.fillStyle = `rgba(255,255,255,${alphaGlow})`;
+      ctx.shadowColor = `hsl(${hue}, 80%, 70%)`;
+      ctx.shadowBlur = shadowBlur;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillText(word.text, 0, 0);
+      
+      ctx.restore();
+    });
+  }
+
+  // Animation loop for redrawing the cloud with glow effect
+  useEffect(() => {
+    let running = true;
+    function animate() {
+      if (!running) return;
+      // Only redraw if we have positioned words from d3-cloud
+      if (positionedWords.length > 0) {
+        draw(positionedWords);
+      }
+      requestAnimationFrame(animate);
+    }
+    animate();
+    return () => { running = false; };
+  }, [positionedWords]);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || words.length === 0) return;
     const ratio = window.devicePixelRatio || 1;
     const canvas = canvasRef.current;
     canvas.width = width * ratio;
@@ -142,34 +294,14 @@ function D3WordCloud({ words, width = 1200, height = 600, onDropWord, isTouchDra
       .font('Rawline')
       .fontWeight(d => d.weight)
       .fontSize(d => d.size)
-      .on('end', draw)
+      .on('end', (positionedWords) => {
+        // Store the positioned words for the animation loop
+        setPositionedWords(positionedWords);
+        // Reset animations when words change
+        setWordAnimations({});
+        draw(positionedWords);
+      })
       .start();
-    function draw(words) {
-      if (!ctx) return;
-      ctx.clearRect(0, 0, width, height);
-      // Animação de brilho oscilante
-      const t = Date.now() / 900;
-      const osc = 0.5 + 0.5 * Math.sin(t);
-      const alphaGlow = 0.45 + 0.35 * osc; // oscila entre 0.45 e 0.8
-      words.forEach(word => {
-        ctx.save();
-        ctx.font = `${word.weight} ${word.size}px Rawline, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.translate(word.x + width / 2, word.y + height / 2);
-        ctx.rotate(word.rotate * Math.PI / 180);
-        // Primeira camada: base aditiva
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.fillStyle = 'rgba(255,255,255,0.25)';
-        ctx.fillText(word.text, 0, 0);
-        // Segunda camada: brilho animado
-        ctx.fillStyle = `rgba(255,255,255,${alphaGlow})`;
-        ctx.shadowColor = '#fff';
-        ctx.shadowBlur = 8 + 8 * osc;
-        ctx.fillText(word.text, 0, 0);
-        ctx.restore();
-      });
-    }
   }, [words, width, height]);
 
   // Drag-and-drop target (desktop)

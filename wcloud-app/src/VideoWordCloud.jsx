@@ -205,15 +205,15 @@ function WordCard({ word, count, onAdd, onRemove }) {
   );
 }
 
-// Copiar o componente WordMenuBox do App.jsx para cá
-function WordMenuBox({ words, onAdd, onRemove, dragProps, style, cardRotation = 0 }) {
+// Componente WordMenuBox com classes CSS específicas
+function WordMenuBox({ words, onAdd, onRemove, dragProps, sectionClass, style, cardRotation = 0 }) {
   return (
     <div
-      className="words-section-top"
+      className={sectionClass}
       style={style}
       {...dragProps}
     >
-      <div className="words-header" style={{ transform: `rotate(${-cardRotation}deg)` }}>
+      <div className="words-header">
         Palavras
       </div>
       <div className="words-list">
@@ -225,7 +225,6 @@ function WordMenuBox({ words, onAdd, onRemove, dragProps, style, cardRotation = 
             onAdd={() => onAdd(word)}
             onRemove={() => onRemove(word)}
             isTopMenu={false}
-            style={{ transform: `rotate(${cardRotation}deg)` }}
           />
         ))}
       </div>
@@ -474,13 +473,9 @@ function VideoWordCloud() {
         onAdd={addWord}
         onRemove={removeWord}
         dragProps={{ onMouseDown: handleTopMenuMouseDown }}
+        sectionClass="words-section-top"
         style={{
           left: `calc(50% + ${topMenuX}px)`,
-          position: 'fixed',
-          top: 40,
-          transform: 'translateX(-50%) scale(0.7) rotate(180deg)',
-          zIndex: 20,
-          cursor: 'grab',
         }}
         cardRotation={180}
       />
@@ -489,13 +484,9 @@ function VideoWordCloud() {
         onAdd={addWord}
         onRemove={removeWord}
         dragProps={{ onMouseDown: handleBottomMenuMouseDown }}
+        sectionClass="words-section-bottom"
         style={{
           left: `calc(50% + ${bottomMenuX}px)`,
-          position: 'fixed',
-          bottom: 40,
-          transform: 'translateX(-50%) scale(0.7) rotate(0deg)',
-          zIndex: 20,
-          cursor: 'grab',
         }}
         cardRotation={0}
       />
@@ -504,13 +495,9 @@ function VideoWordCloud() {
         onAdd={addWord}
         onRemove={removeWord}
         dragProps={{ onMouseDown: handleLeftMenuMouseDown }}
+        sectionClass="words-section-left"
         style={{
           top: `calc(50% + ${leftMenuY}px)`,
-          position: 'fixed',
-          left: 40,
-          transform: 'translateY(-50%) scale(0.7) rotate(90deg)',
-          zIndex: 20,
-          cursor: 'grab',
         }}
         cardRotation={90}
       />
@@ -519,13 +506,9 @@ function VideoWordCloud() {
         onAdd={addWord}
         onRemove={removeWord}
         dragProps={{ onMouseDown: handleRightMenuMouseDown }}
+        sectionClass="words-section-right"
         style={{
           top: `calc(50% + ${rightMenuY}px)`,
-          position: 'fixed',
-          right: 40,
-          transform: 'translateY(-50%) scale(0.7) rotate(-90deg)',
-          zIndex: 20,
-          cursor: 'grab',
         }}
         cardRotation={-90}
       />

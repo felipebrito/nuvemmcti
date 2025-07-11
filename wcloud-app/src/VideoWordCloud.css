@@ -520,11 +520,12 @@
   top: 4px;
 } 
 
-.words-section-top {
+/* Seções de palavras nas quatro posições */
+.words-section-top,
+.words-section-bottom,
+.words-section-left,
+.words-section-right {
   position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%) scale(0.7) rotate(0deg);
   width: 40vw;
   min-width: 220px;
   max-width: 400px;
@@ -541,18 +542,62 @@
   align-items: center;
   justify-content: flex-start;
   overflow: hidden;
+  cursor: grab;
 }
 
-.words-section-top .words-header {
+.words-section-top {
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.7) rotate(180deg);
+}
+
+.words-section-bottom {
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.7) rotate(0deg);
+}
+
+.words-section-left {
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%) scale(0.7) rotate(90deg);
+}
+
+.words-section-right {
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%) scale(0.7) rotate(-90deg);
+}
+
+/* Headers das seções */
+.words-section-top .words-header,
+.words-section-bottom .words-header,
+.words-section-left .words-header,
+.words-section-right .words-header {
   width: 100%;
   text-align: center;
   margin-bottom: 12px;
   font-size: 1rem;
   color: #fff;
+}
+
+.words-section-top .words-header {
   transform: rotate(180deg);
 }
 
-.words-section-top .words-list {
+.words-section-left .words-header {
+  transform: rotate(-90deg);
+}
+
+.words-section-right .words-header {
+  transform: rotate(90deg);
+}
+
+/* Listas das seções */
+.words-section-top .words-list,
+.words-section-bottom .words-list,
+.words-section-left .words-list,
+.words-section-right .words-list {
   max-height: calc(3 * 38px + 2 * 16px);
   overflow-y: auto;
   padding: 0 12px;
@@ -564,7 +609,18 @@
   align-items: stretch;
 }
 
+/* Cards das seções */
 .words-section-top .word-card {
   transform: rotate(180deg);
+  font-size: 0.95em;
+}
+
+.words-section-left .word-card {
+  transform: rotate(90deg);
+  font-size: 0.95em;
+}
+
+.words-section-right .word-card {
+  transform: rotate(-90deg);
   font-size: 0.95em;
 } 

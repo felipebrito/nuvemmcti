@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import cloud from 'd3-cloud';
 import './VideoWordCloud.css';
 
 const initialWords = [
@@ -114,7 +113,7 @@ function weightFactor(value) {
   return Math.min(base + Math.log2(value) * fator, maxFontSize);
 }
 
-function D3WordCloud({ words, width = 1200, height = 600, onDropWord, isTouchDragging }) {
+function D3WordCloud({ words, width = 1200, height = 800, onDropWord, isTouchDragging }) {
   const canvasRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
   const [positionedWords, setPositionedWords] = useState([]);
@@ -125,17 +124,9 @@ function D3WordCloud({ words, width = 1200, height = 600, onDropWord, isTouchDra
     return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
   }
 
-  // Função de easing baseada no spinner (ease-in-out com scale)
-  function easeBounce(t) {
-    // Simula o movimento do spinner: escala de 0 a 1 e volta
-    if (t < 0.5) {
-      // Primeira metade: escala de 0 a 1 (ease-in)
-      return 2 * t * t;
-    } else {
-      // Segunda metade: escala de 1 a 0 (ease-out)
-      const f = 2 * t - 2;
-      return 1 - f * f / 2;
-    }
+  // Função de easing mais suave (cubic-bezier like)
+  function easeSmooth(t) {
+    return t * t * (3 - 2 * t);
   }
 
   // Função de easing para flutuação natural (ondulante)
@@ -144,11 +135,19 @@ function D3WordCloud({ words, width = 1200, height = 600, onDropWord, isTouchDra
     return 0.5 + 0.5 * Math.sin(t * Math.PI * 2);
   }
 
-  // Função para criar animação suave baseada no spinner
+  // Função de easing para movimento mais natural
+  function easeNatural(t) {
+    // Combinação de funções para movimento mais orgânico
+    const wave = Math.sin(t * Math.PI * 2);
+    const smooth = t * t * (3 - 2 * t);
+    return 0.5 + 0.5 * (wave * smooth);
+  }
+
+  // Função para criar animação suave
   function createSmoothAnimation(start, end, duration, startTime) {
     const elapsed = (Date.now() - startTime) / 1000;
     const progress = Math.min(elapsed / duration, 1);
-    const easedProgress = easeBounce(progress);
+    const easedProgress = easeSmooth(progress);
     return start + (end - start) * easedProgress;
   }
 
@@ -156,7 +155,7 @@ function D3WordCloud({ words, width = 1200, height = 600, onDropWord, isTouchDra
   function createFloatAnimation(start, end, duration, startTime) {
     const elapsed = (Date.now() - startTime) / 1000;
     const progress = Math.min(elapsed / duration, 1);
-    const easedProgress = easeFloat(progress);
+    const easedProgress = easeNatural(progress);
     return start + (end - start) * easedProgress;
   }
 
@@ -174,18 +173,18 @@ function D3WordCloud({ words, width = 1200, height = 600, onDropWord, isTouchDra
       // Inicializar animação se não existir
       if (!wordAnimations[wordKey]) {
         wordAnimations[wordKey] = {
-          floatX: { start: 0, end: (Math.random() - 0.5) * 3, duration: 2 + Math.random() * 0.5, startTime: currentTime },
-          floatY: { start: 0, end: (Math.random() - 0.5) * 2, duration: 2.5 + Math.random() * 0.5, startTime: currentTime },
-          glow: { start: 0.3, end: 0.8, duration: 2 + Math.random() * 0.3, startTime: currentTime },
-          alpha: { start: 0.4, end: 0.7, duration: 2.2 + Math.random() * 0.4, startTime: currentTime }
+          floatX: { start: 0, end: (Math.random() - 0.5) * 2, duration: 1.2 + Math.random() * 0.3, startTime: currentTime },
+          floatY: { start: 0, end: (Math.random() - 0.5) * 1.5, duration: 1.5 + Math.random() * 0.4, startTime: currentTime },
+          glow: { start: 0.4, end: 0.9, duration: 1.3 + Math.random() * 0.2, startTime: currentTime },
+          alpha: { start: 0.5, end: 0.8, duration: 1.4 + Math.random() * 0.3, startTime: currentTime }
         };
       }
       
       const anim = wordAnimations[wordKey];
       
-      // Calcular posições suaves
-      const floatX = createFloatAnimation(anim.floatX.start, anim.floatX.end, anim.floatX.duration, anim.floatX.startTime);
-      const floatY = createFloatAnimation(anim.floatY.start, anim.floatY.end, anim.floatY.duration, anim.floatY.startTime);
+      // Calcular posições suaves com movimento mais natural
+      const floatX = createSmoothAnimation(anim.floatX.start, anim.floatX.end, anim.floatX.duration, anim.floatX.startTime);
+      const floatY = createSmoothAnimation(anim.floatY.start, anim.floatY.end, anim.floatY.duration, anim.floatY.startTime);
       const glow = createSmoothAnimation(anim.glow.start, anim.glow.end, anim.glow.duration, anim.glow.startTime);
       const alpha = createSmoothAnimation(anim.alpha.start, anim.alpha.end, anim.alpha.duration, anim.alpha.startTime);
       
@@ -197,29 +196,29 @@ function D3WordCloud({ words, width = 1200, height = 600, onDropWord, isTouchDra
       
       if (elapsedX >= anim.floatX.duration) {
         anim.floatX.start = anim.floatX.end;
-        anim.floatX.end = (Math.random() - 0.5) * 3; // ±1.5px
-        anim.floatX.duration = 2 + Math.random() * 0.5;
+        anim.floatX.end = (Math.random() - 0.5) * 2; // ±1px
+        anim.floatX.duration = 1.2 + Math.random() * 0.3;
         anim.floatX.startTime = currentTime;
       }
       
       if (elapsedY >= anim.floatY.duration) {
         anim.floatY.start = anim.floatY.end;
-        anim.floatY.end = (Math.random() - 0.5) * 2; // ±1px
-        anim.floatY.duration = 2.5 + Math.random() * 0.5;
+        anim.floatY.end = (Math.random() - 0.5) * 1.5; // ±0.75px
+        anim.floatY.duration = 1.5 + Math.random() * 0.4;
         anim.floatY.startTime = currentTime;
       }
       
       if (elapsedGlow >= anim.glow.duration) {
         anim.glow.start = anim.glow.end;
-        anim.glow.end = 0.3 + Math.random() * 0.5; // 0.3-0.8
-        anim.glow.duration = 2 + Math.random() * 0.3;
+        anim.glow.end = 0.4 + Math.random() * 0.5; // 0.4-0.9
+        anim.glow.duration = 1.3 + Math.random() * 0.2;
         anim.glow.startTime = currentTime;
       }
       
       if (elapsedAlpha >= anim.alpha.duration) {
         anim.alpha.start = anim.alpha.end;
-        anim.alpha.end = 0.4 + Math.random() * 0.3; // 0.4-0.7
-        anim.alpha.duration = 2.2 + Math.random() * 0.4;
+        anim.alpha.end = 0.5 + Math.random() * 0.3; // 0.5-0.8
+        anim.alpha.duration = 1.4 + Math.random() * 0.3;
         anim.alpha.startTime = currentTime;
       }
       
@@ -272,6 +271,8 @@ function D3WordCloud({ words, width = 1200, height = 600, onDropWord, isTouchDra
 
   useEffect(() => {
     if (!canvasRef.current || words.length === 0) return;
+    
+    // Configurar canvas
     const ratio = window.devicePixelRatio || 1;
     const canvas = canvasRef.current;
     canvas.width = width * ratio;
@@ -280,28 +281,72 @@ function D3WordCloud({ words, width = 1200, height = 600, onDropWord, isTouchDra
     canvas.style.height = `${height}px`;
     const ctx = canvas.getContext('2d');
     ctx?.setTransform(ratio, 0, 0, ratio, 0, 0);
-    ctx?.clearRect(0, 0, width, height);
-    const wordObjs = words.map(([text, value]) => {
-      const size = weightFactor(value);
-      const weight = getFontWeight(size);
-      return { text, value, size, weight };
-    });
-    cloud()
-      .size([width, height])
-      .words(wordObjs)
-      .padding(5)
-      .rotate(() => Math.random() > 0.5 ? 0 : 90)
-      .font('Rawline')
-      .fontWeight(d => d.weight)
-      .fontSize(d => d.size)
-      .on('end', (positionedWords) => {
-        // Store the positioned words for the animation loop
-        setPositionedWords(positionedWords);
-        // Reset animations when words change
-        setWordAnimations({});
-        draw(positionedWords);
+    
+    // Ordena palavras por tamanho (maiores primeiro)
+    const wordObjs = words
+      .map(([text, value]) => {
+        const size = weightFactor(value);
+        const weight = getFontWeight(size);
+        return { text, value, size, weight, x: 0, y: 0, rotate: Math.random() > 0.5 ? 0 : 90 };
       })
-      .start();
+      .sort((a, b) => b.size - a.size);
+
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const maxRadius = Math.min(width, height) * 0.48;
+    const basePadding = 80;
+    const positioned = [];
+    
+    // Função para medir bounding box real da palavra
+    function measureWord(word) {
+      ctx.font = `${word.weight} ${word.size}px Rawline, sans-serif`;
+      const metrics = ctx.measureText(word.text);
+      word.width = metrics.width;
+      word.height = word.size; // Aproximação
+    }
+    
+    // Função de colisão usando bounding box
+    function wordsCollide(w1, w2, padding = 8) {
+      return !(
+        w1.x + w1.width / 2 + padding < w2.x - w2.width / 2 ||
+        w1.x - w1.width / 2 - padding > w2.x + w2.width / 2 ||
+        w1.y + w1.height / 2 + padding < w2.y - w2.height / 2 ||
+        w1.y - w1.height / 2 - padding > w2.y + w2.height / 2
+      );
+    }
+    function hasCollision(newWord, positionedWords, padding = 80) {
+      return positionedWords.some(word => wordsCollide(newWord, word, padding));
+    }
+
+    // Medir todas as palavras antes de posicionar
+    wordObjs.forEach(measureWord);
+
+    wordObjs.forEach((word, index) => {
+      const sizeFactor = word.size / 100;
+      let placed = false;
+      let attempts = 0;
+      const maxAttempts = 100;
+      while (!placed && attempts < maxAttempts) {
+        const angle = (index * 137.5 + attempts * 7) * (Math.PI / 180);
+        const radius = (0.22 + sizeFactor * 0.2) * maxRadius + index * 12 + basePadding + attempts * 2;
+        const jitterX = (Math.random() - 0.5) * 4;
+        const jitterY = (Math.random() - 0.5) * 4;
+        let x = Math.cos(angle) * radius + jitterX;
+        let y = Math.sin(angle) * radius + jitterY;
+        x = Math.max(-centerX + 40, Math.min(centerX - 40, x));
+        y = Math.max(-centerY + 40, Math.min(centerY - 40, y));
+        word.x = x;
+        word.y = y;
+        if (!hasCollision(word, positioned, 8)) {
+          placed = true;
+        }
+        attempts++;
+      }
+      positioned.push({ ...word });
+    });
+
+    setPositionedWords(positioned);
+    setWordAnimations({}); // Reset animations
   }, [words, width, height]);
 
   // Drag-and-drop target (desktop)
@@ -697,7 +742,14 @@ function VideoWordCloud() {
     }
   }
 
-
+function wordsCollide(word1, word2, padding = 8) {
+  return !(
+    word1.x + word1.width / 2 + padding < word2.x - word2.width / 2 ||
+    word1.x - word1.width / 2 - padding > word2.x + word2.width / 2 ||
+    word1.y + word1.height / 2 + padding < word2.y - word2.height / 2 ||
+    word1.y - word1.height / 2 - padding > word2.y + word2.height / 2
+  );
+}
 
 
   
